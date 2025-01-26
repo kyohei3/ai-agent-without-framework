@@ -31,9 +31,16 @@ class State(enum.Enum):
     """エージェントの状態の一覧"""
 
     START = enum.auto()
+    """ターンの開始"""
+
     LLM_CALL = enum.auto()
+    """ LLM による回答生成またはツールの呼び出し"""
+
     TOOL_RUN = enum.auto()
+    """ツールの実行"""
+
     END = enum.auto()
+    """ターンの終了"""
 
 
 class ToolCall(pydantic.BaseModel):
@@ -57,7 +64,7 @@ class SimpleAgent:
         self._message_history: list[ChatCompletionMessageParam] = []
 
         # エージェントの内部状態を管理する変数
-        self._state = State.START
+        self._state: State = State.START
 
     def _get_response(self, user_query: str) -> str | list[ToolCall] | None:
         """ユーザーからメッセージを受け取り、LLM により回答を生成する関数
