@@ -20,3 +20,11 @@ uv をインストール後、`uv sync` で必要なライブラリをインス�
 ```bash
 uv run simple_chatbot.py
 ```
+
+### simple_agent.py
+
+検索エンジンを任意の回数活用して質問に答えるエージェントです。
+
+```bash
+uv run simple_agent.py
+```
