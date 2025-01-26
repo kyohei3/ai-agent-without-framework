@@ -106,7 +106,7 @@ class SimpleAgent:
                                     "description": "検索クエリ。検索クエリにはユーザーが使用している言語と同じ言語を用いてください。",
                                 },
                             },
-                            "required": ["search_query"],
+                            "required": ["query"],
                         },
                     },
                 }
