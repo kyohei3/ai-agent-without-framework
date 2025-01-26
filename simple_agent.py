@@ -66,11 +66,11 @@ class SimpleAgent:
         # エージェントの内部状態を管理する変数
         self._state: State = State.START
 
-    def _get_response(self, user_query: str) -> str | list[ToolCall] | None:
+    def _get_response(self, user_query: str | None) -> str | list[ToolCall] | None:
         """ユーザーからメッセージを受け取り、LLM により回答を生成する関数
 
         Args:
-            user_query (str): ユーザーからの入力
+            user_query (str | None): ユーザーからの入力
 
         Returns:
             str | list[ToolCall] | None: LLM による回答。回答がテキストの場合は str、
@@ -78,11 +78,12 @@ class SimpleAgent:
         """
 
         # ユーザの入力を message_history に追加
-        user_message: ChatCompletionMessageParam = {
-            "role": "user",
-            "content": user_query,
-        }
-        self._message_history.append(user_message)
+        if user_query:
+            user_message: ChatCompletionMessageParam = {
+                "role": "user",
+                "content": user_query,
+            }
+            self._message_history.append(user_message)
 
         # LLM を呼び出して回答を得る
         completion = self._client.chat.completions.create(
@@ -94,15 +95,15 @@ class SimpleAgent:
                     "function": {
                         "name": "search",
                         "description": (
-                            "Search the web for information. "
-                            "Use this tool to find recent news or events."
+                            "ウェブを検索し情報を取得するツール。"
+                            "最近のニュースや出来事を参照する場合にはこのツールを使ってください。"
                         ),
                         "parameters": {
                             "type": "object",
                             "properties": {
                                 "query": {
                                     "type": "string",
-                                    "description": "Search query to find information.",
+                                    "description": "検索クエリ。検索クエリにはユーザーが使用している言語と同じ言語を用いてください。",
                                 },
                             },
                             "required": ["search_query"],
@@ -149,15 +150,30 @@ class SimpleAgent:
         return completion.choices[0].message.content or ""
 
     def _run_tool(self, tool_call: ToolCall) -> str:
+        """LLM の出力に従ってツールを実行する関数
+
+        Args:
+            tool_call (ToolCall): LLM が指定した呼び出すツールや引数などの情報
+
+        Returns:
+            str: ツールの実行結果
+        """
+        if tool_call.function_name != "search":
+            raise ValueError(f"Unsupported tool: {tool_call.function_name}")
+
         if "query" not in tool_call.arguments:
             raise ValueError("query argument is required for search tool.")
 
+        # ツールの実行状況をユーザーに通知
         print(f"ツール呼び出し: {tool_call.function_name}({tool_call.arguments})")
+
         with duckduckgo_search.DDGS() as ddgs:
             results = ddgs.text(
                 keywords=tool_call.arguments["query"],
                 region="jp-jp",
             )
+
+            # 検索結果を文字列に変換し、会話履歴に追加する
             tool_response = "\n\n".join(
                 f"Title: {d['title']}\nURL: {d['href']}\nBody: {d['body']}"
                 for d in results
@@ -173,6 +189,7 @@ class SimpleAgent:
 
     def run(self) -> None:
         """チャットボットとの対話を開始"""
+        user_query: str | None = None
         while True:
             try:
                 match self._state:
@@ -184,6 +201,7 @@ class SimpleAgent:
                     case State.LLM_CALL:
                         # LLM_CALL 状態では LLM のレスポンスに応じて遷移先の状態が変わる
                         response = self._get_response(user_query)
+                        user_query = None
 
                         if isinstance(response, str):
                             # テキストの場合は END へ遷移
